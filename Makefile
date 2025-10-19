@@ -12,16 +12,20 @@ export PATH := $(PATH):$(GOPATH)/bin
 help:
 	@echo "Available commands:"
 	@echo "  setup-env     - Setup Go environment variables"
+	@echo "  deps          - Install all dependencies (Go + Python)"
 	@echo "  proto-gen     - Generate Go code from protobuf files"
 	@echo "  proto-clean   - Clean generated protobuf files"  
-	@echo "  build         - Build all services"
-	@echo "  test          - Run tests"
+	@echo "  build         - Build all services (Go + Python)"
+	@echo "  test          - Run Go tests"
+	@echo "  test-platform - Test entire platform (Gateway API)"
+	@echo "  test-all      - Run all tests"
 	@echo "  run-local     - Run services locally"
 	@echo "  docker-build  - Build Docker images"
 	@echo "  docker-up     - Start development environment"
 	@echo "  docker-down   - Stop development environment"
 	@echo "  migrate-up    - Apply database migrations"
 	@echo "  migrate-down  - Rollback database migrations"
+	@echo "  dev           - Full development setup"
 
 # Protocol buffer generation
 PROTO_PATH = ./proto
@@ -52,13 +56,23 @@ build: proto-gen
 	@go build -o bin/taskservice ./services/taskservice/cmd/taskservice
 	@go build -o bin/presenceservice ./services/presenceservice/cmd/presenceservice
 	@go build -o bin/recommendationservice ./services/recommendationservice/cmd/recommendationservice
+	@echo "Installing gateway dependencies..."
+	@./scripts/install-gateway-deps.sh
 	@echo "Build completed"
 
 # Run tests
 test:
-	@echo "Running tests..."
+	@echo "Running Go tests..."
 	@go test -v -race ./...
-	@echo "Tests completed"
+	@echo "Go tests completed"
+
+test-platform:
+	@echo "Testing entire platform..."
+	@python3 test-platform.py
+	@echo "Platform tests completed"
+
+test-all: test test-platform
+	@echo "All tests completed"
 
 # Run load tests (requires k6)
 load-test:
@@ -74,6 +88,8 @@ run-local: build
 	@./bin/taskservice &
 	@./bin/presenceservice &
 	@./bin/recommendationservice &
+	@echo "Starting gateway service..."
+	@cd services/gateway && python main.py &
 	@echo "Services started. Press Ctrl+C to stop."
 
 # Docker commands
@@ -84,6 +100,7 @@ docker-build:
 	@docker build -t freelance-platform/taskservice -f docker/taskservice/Dockerfile .
 	@docker build -t freelance-platform/presenceservice -f docker/presenceservice/Dockerfile .
 	@docker build -t freelance-platform/recommendationservice -f docker/recommendationservice/Dockerfile .
+	@docker build -t freelance-platform/gateway -f services/gateway/Dockerfile ./services/gateway
 	@echo "Docker images built"
 
 docker-up:
@@ -119,7 +136,9 @@ deps:
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	@go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-	@echo "Dependencies installed"
+	@echo "Installing gateway dependencies..."
+	@./scripts/install-gateway-deps.sh
+	@echo "All dependencies installed"
 
 format:
 	@echo "Formatting code..."
@@ -151,6 +170,8 @@ dev: docker-up migrate-up proto-gen build
 	@echo "  - PostgreSQL: localhost:5432"
 	@echo "  - Redis: localhost:6379"
 	@echo "  - NATS: localhost:4222"
+	@echo "  - Gateway API: http://localhost:8000"
+	@echo "  - API Docs: http://localhost:8000/docs"
 	@echo "  - Grafana: http://localhost:3000"
 	@echo "  - Prometheus: http://localhost:9090"
 

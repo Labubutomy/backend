@@ -131,19 +131,49 @@ services:
       - redis-node-2
       - redis-node-3
 
-  # Example service containers (commented out for now)
-  # orchestrator:
+  # Gateway Service - Main API entry point
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: freelance_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_PORT: 8000
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable
+      USER_SERVICE_URL: userservice:50051
+      TASK_SERVICE_URL: taskservice:50052
+      RECOMMENDATION_SERVICE_URL: recommendationservice:50054
+      PRESENCE_SERVICE_URL: http://presenceservice:8080
+      REDIS_URL: redis://redis-node-1:6379/0
+      NATS_URL: nats://nats:4222
+      JWT_SECRET_KEY: your-secret-key-change-in-production
+      DEBUG: false
+    depends_on:
+      - postgres
+      - redis-node-1
+      - nats
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Service - Commented out until Dockerfile is created
+  # userservice:
   #   build:
   #     context: .
-  #     dockerfile: docker/orchestrator/Dockerfile
-  #   container_name: freelance_orchestrator
+  #     dockerfile: services/userservice/Dockerfile
+  #   container_name: freelance_userservice
   #   ports:
-  #     - "8090:8080"
+  #     - "50051:50051"
   #   environment:
-  #     POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
-  #     REDIS_ADDRS: "redis-node-1:6379,redis-node-2:6379,redis-node-3:6379"
+  #     DATABASE_URL: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
   #     NATS_URL: "nats://nats:4222"
-  #     LOG_LEVEL: "debug"
+  #     GRPC_PORT: 50051
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
@@ -151,20 +181,76 @@ services:
   #       condition: service_healthy
   #   restart: unless-stopped
 
-  # userservice:
+  # Task Service - Commented out until Dockerfile is created
+  # taskservice:
   #   build:
   #     context: .
-  #     dockerfile: docker/userservice/Dockerfile
-  #   container_name: freelance_userservice
+  #     dockerfile: services/taskservice/Dockerfile
+  #   container_name: freelance_taskservice
   #   ports:
-  #     - "8091:8080"
+  #     - "50052:50052"
   #   environment:
-  #     POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
-  #     REDIS_ADDRS: "redis-node-1:6379,redis-node-2:6379,redis-node-3:6379"
+  #     DATABASE_URL: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
   #     NATS_URL: "nats://nats:4222"
+  #     GRPC_PORT: 50052
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
+  #     nats:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  # Orchestrator Service - Commented out until Dockerfile is created
+  # orchestrator:
+  #   build:
+  #     context: .
+  #     dockerfile: services/orchestrator/Dockerfile
+  #   container_name: freelance_orchestrator
+  #   ports:
+  #     - "50053:50053"
+  #   environment:
+  #     DATABASE_URL: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
+  #     NATS_URL: "nats://nats:4222"
+  #     USER_SERVICE_ADDR: userservice:50051
+  #     GRPC_PORT: 50053
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     nats:
+  #       condition: service_healthy
+  #     userservice:
+  #       condition: service_started
+  #   restart: unless-stopped
+
+  # Recommendation Service - Commented out until Dockerfile is created
+  # recommendationservice:
+  #   build:
+  #     context: .
+  #     dockerfile: services/recommendationservice/Dockerfile
+  #   container_name: freelance_recommendationservice
+  #   ports:
+  #     - "50054:50054"
+  #   environment:
+  #     DATABASE_URL: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
+  #     NATS_URL: "nats://nats:4222"
+  #     GRPC_PORT: 50054
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     nats:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  # Presence Service - Commented out until Dockerfile is created
+  # presenceservice:
+  #   build:
+  #     context: .
+  #     dockerfile: services/presenceservice/Dockerfile
+  #   container_name: freelance_presenceservice
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     HTTP_ADDR: ":8080"
   #   restart: unless-stopped
 
 volumes:
