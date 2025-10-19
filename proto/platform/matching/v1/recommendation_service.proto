@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package platform.matching.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/matching/v1";
+
+// High-performance recommendation service for ultra-low latency matching
+service RecommendationService {
+  // Core scoring method - target latency < 200ms
+  rpc ScoreTaskCandidates(ScoreTaskCandidatesRequest) returns (ScoreTaskCandidatesResponse);
+  
+  // Batch scoring for multiple tasks (efficiency optimization)
+  rpc BatchScoreTaskCandidates(BatchScoreTaskCandidatesRequest) returns (BatchScoreTaskCandidatesResponse);
+  
+  // Precompute and cache user similarities (background job)
+  rpc PrecomputeSimilarities(PrecomputeSimilaritiesRequest) returns (google.protobuf.Empty);
+  
+  // Embedding management
+  rpc UpsertEmbedding(UpsertEmbeddingRequest) returns (google.protobuf.Empty);
+  
+  // Fast candidate filtering before scoring
+  rpc FilterCandidates(FilterCandidatesRequest) returns (FilterCandidatesResponse);
+  
+  // Health check for circuit breaker
+  rpc Health(google.protobuf.Empty) returns (HealthResponse);
+}
+
+message TaskContext {
+  string task_id = 1;
+  repeated string skill_tags = 2;
+  double budget_lower_bound = 3;
+  double budget_upper_bound = 4;
+  string title = 5;
+  string description = 6;
+  string locale = 7;
+  uint32 priority = 8;
+  repeated float embedding_vector = 9; // Pre-computed semantic embedding
+  google.protobuf.Timestamp created_at = 10;
+  map<string, string> metadata = 11; // Extensible attributes
+}
+
+message CandidateContext {
+  string user_id = 1;
+  repeated string skill_tags = 2;
+  double hourly_rate = 3;
+  double rating = 4;
+  double response_rate = 5;          // Historical response rate (0.0-1.0)
+  double acceptance_rate = 6;        // Historical acceptance rate (0.0-1.0)
+  double avg_response_time_hours = 7; // Average response time in hours
+  repeated float embedding_vector = 8; // Pre-computed profile embedding
+  google.protobuf.Timestamp last_active_at = 9;
+  string timezone = 10;
+  repeated string preferred_domains = 11; // e.g., ["backend", "mobile", "ai"]
+  map<string, double> skill_confidence = 12; // skill -> confidence score
+}
+
+message ScoreTaskCandidatesRequest {
+  TaskContext task = 1;
+  repeated CandidateContext candidates = 2;
+  uint32 limit = 3; // Maximum number of scored candidates to return
+  ScoringStrategy strategy = 4;
+  map<string, double> weights = 5; // Override default scoring weights
+}
+
+message ScoringStrategy {
+  string name = 1; // "skill_match", "ml_hybrid", "greedy", "balanced"
+  map<string, double> parameters = 2; // Strategy-specific parameters
+}
+
+message CandidateScore {
+  string user_id = 1;
+  double score = 2; // Final composite score (0.0-1.0)
+  ScoreBreakdown breakdown = 3;
+  repeated string reasons = 4; // Human-readable explanations
+}
+
+message ScoreBreakdown {
+  double skill_match_score = 1;     // Tag intersection score
+  double embedding_similarity = 2;   // Semantic similarity score
+  double rating_score = 3;          // Normalized rating score
+  double responsiveness_score = 4;   // Response time penalty
+  double availability_score = 5;     // Online/recent activity boost
+  double price_compatibility = 6;    // Budget vs hourly rate match
+  double diversity_bonus = 7;        // Diversity in recommendations
+}
+
+message ScoreTaskCandidatesResponse {
+  repeated CandidateScore scores = 1;
+  ScoringMetadata metadata = 2;
+}
+
+message ScoringMetadata {
+  int32 total_candidates_evaluated = 1;
+  int64 scoring_duration_ms = 2;
+  string strategy_used = 3;
+  map<string, double> weights_applied = 4;
+}
+
+// Batch processing for efficiency
+message BatchScoreTaskCandidatesRequest {
+  repeated ScoreTaskCandidatesRequest requests = 1;
+}
+
+message BatchScoreTaskCandidatesResponse {
+  repeated ScoreTaskCandidatesResponse responses = 1;
+}
+
+// Fast pre-filtering before expensive scoring
+message FilterCandidatesRequest {
+  TaskContext task = 1;
+  repeated string candidate_user_ids = 2;
+  FilterCriteria criteria = 3;
+}
+
+message FilterCriteria {
+  double min_rating = 1;
+  double max_hourly_rate = 2;
+  repeated string required_skills = 3;
+  repeated string excluded_skills = 4;
+  bool online_only = 5;
+  int32 max_hours_since_active = 6;
+  string timezone_preference = 7;
+}
+
+message FilterCandidatesResponse {
+  repeated string filtered_user_ids = 1;
+  int32 total_filtered = 2;
+}
+
+// Background similarity precomputation
+message PrecomputeSimilaritiesRequest {
+  repeated string user_ids = 1; // If empty, process all users
+  bool force_recompute = 2;
+}
+
+message UpsertEmbeddingRequest {
+  string entity_id = 1;
+  string entity_type = 2; // "task" or "user"
+  repeated float embedding = 3;
+  google.protobuf.Timestamp updated_at = 4;
+  map<string, string> metadata = 5;
+}
+
+message HealthResponse {
+  bool healthy = 1;
+  string status = 2;
+  map<string, string> checks = 3; // component -> status
+}

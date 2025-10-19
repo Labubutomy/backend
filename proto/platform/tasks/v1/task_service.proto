@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package platform.tasks.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/tasks/v1";
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (google.protobuf.Empty);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+}
+
+message Task {
+  string task_id = 1;
+  string client_id = 2;
+  string title = 3;
+  string description = 4;
+  repeated string skill_tags = 5;
+  double budget_lower_bound = 6;
+  double budget_upper_bound = 7;
+  string repository_url = 8;
+  platform.common.v1.TaskLifecycleStatus status = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateTaskRequest {
+  string client_id = 1;
+  string title = 2;
+  string description = 3;
+  repeated string skill_tags = 4;
+  double budget_lower_bound = 5;
+  double budget_upper_bound = 6;
+  string repository_url = 7;
+  uint32 priority = 8;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message UpdateTaskRequest {
+  string task_id = 1;
+  string title = 2;
+  string description = 3;
+  repeated string skill_tags = 4;
+  double budget_lower_bound = 5;
+  double budget_upper_bound = 6;
+  string repository_url = 7;
+  platform.common.v1.TaskLifecycleStatus status = 8;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+}

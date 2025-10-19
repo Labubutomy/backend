@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package platform.events.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/events/v1";
+
+// UserStatusChanged is emitted whenever a developer toggles their presence.
+message UserStatusChanged {
+  string user_id = 1;
+  platform.common.v1.UserPresenceStatus presence = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// UserProfileUpdated is emitted when a developer updates core attributes that affect matching.
+message UserProfileUpdated {
+  string user_id = 1;
+  repeated string skill_tags = 2;
+  double hourly_rate = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// TaskCreated is emitted after a task is persisted and ready for matching.
+message TaskCreated {
+  string task_id = 1;
+  string client_id = 2;
+  string title = 3;
+  string description = 4;
+  repeated string skill_tags = 5;
+  double budget_lower_bound = 6;
+  double budget_upper_bound = 7;
+  string repository_url = 8;
+  platform.common.v1.TaskLifecycleStatus status = 9;
+  google.protobuf.Timestamp occurred_at = 10;
+}
+
+// TaskUpdated is emitted when mutable task attributes change.
+message TaskUpdated {
+  string task_id = 1;
+  platform.common.v1.TaskLifecycleStatus status = 2;
+  repeated string skill_tags = 3;
+  double budget_lower_bound = 4;
+  double budget_upper_bound = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// MatchProposed is emitted when the orchestrator decides to push a proposal to a developer.
+message MatchProposed {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  double score = 4;
+  string strategy = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// MatchAccepted is emitted when a developer accepts a proposal.
+message MatchAccepted {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// MatchRejected is emitted when a developer rejects a proposal.
+message MatchRejected {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// DeliveryFailed is emitted when the delivery service cannot push a proposal.
+message DeliveryFailed {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  string channel = 4;
+  string failure_reason = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}

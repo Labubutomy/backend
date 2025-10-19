@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package platform.users.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/users/v1";
+
+service UserService {
+  rpc CreateDeveloperProfile(CreateDeveloperProfileRequest) returns (CreateDeveloperProfileResponse);
+  rpc UpdateDeveloperProfile(UpdateDeveloperProfileRequest) returns (google.protobuf.Empty);
+  rpc UpdatePresence(UpdatePresenceRequest) returns (google.protobuf.Empty);
+  rpc ListOnlineDevelopers(ListOnlineDevelopersRequest) returns (ListOnlineDevelopersResponse);
+}
+
+message DeveloperProfile {
+  string user_id = 1;
+  string display_name = 2;
+  string email = 3;
+  repeated string skill_tags = 4;
+  double hourly_rate = 5;
+  double rating = 6;
+  platform.common.v1.UserPresenceStatus presence = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateDeveloperProfileRequest {
+  string display_name = 1;
+  string email = 2;
+  repeated string skill_tags = 3;
+  double hourly_rate = 4;
+}
+
+message CreateDeveloperProfileResponse {
+  DeveloperProfile profile = 1;
+}
+
+message UpdateDeveloperProfileRequest {
+  string user_id = 1;
+  repeated string skill_tags = 2;
+  double hourly_rate = 3;
+  string bio = 4;
+  repeated string links = 5;
+}
+
+message UpdatePresenceRequest {
+  string user_id = 1;
+  platform.common.v1.UserPresenceStatus presence = 2;
+}
+
+message ListOnlineDevelopersRequest {
+  repeated string skill_tags = 1;
+  double budget_lower_bound = 2;
+  double budget_upper_bound = 3;
+  uint32 limit = 4;
+}
+
+message ListOnlineDevelopersResponse {
+  repeated DeveloperProfile developers = 1;
+}

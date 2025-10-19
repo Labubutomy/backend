@@ -1,0 +1,71 @@
+# Prometheus configuration for freelance platform monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # NATS monitoring
+  - job_name: 'nats'
+    static_configs:
+      - targets: ['nats:8222']
+
+  # Application services (when deployed)
+  - job_name: 'orchestrator'
+    static_configs:
+      - targets: ['orchestrator:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'userservice'
+    static_configs:
+      - targets: ['userservice:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'taskservice'
+    static_configs:
+      - targets: ['taskservice:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'presenceservice'
+    static_configs:
+      - targets: ['presenceservice:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'recommendationservice'
+    static_configs:
+      - targets: ['recommendationservice:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'deliveryservice'
+    static_configs:
+      - targets: ['deliveryservice:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Redis exporter (if deployed)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # PostgreSQL exporter (if deployed)  
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']

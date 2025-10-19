@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package platform.events.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/events/v1";
+
+// Critical event that triggers matching flow with minimal latency
+message TaskCreatedEvent {
+  string task_id = 1;
+  string client_id = 2;
+  string title = 3;
+  string description = 4;
+  repeated string skill_tags = 5;
+  double budget_lower_bound = 6;
+  double budget_upper_bound = 7;
+  string repository_url = 8;
+  uint32 priority = 9;
+  google.protobuf.Timestamp created_at = 10;
+  // Embedding vector for ML-based matching (optional for MVP)
+  repeated float embedding_vector = 11;
+}
+
+message TaskUpdatedEvent {
+  string task_id = 1;
+  platform.common.v1.TaskLifecycleStatus status = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message TaskAssignedEvent {
+  string task_id = 1;
+  string assigned_user_id = 2;
+  google.protobuf.Timestamp assigned_at = 3;
+}
+
+// User presence changes - critical for maintaining online developer indices
+message UserPresenceChangedEvent {
+  string user_id = 1;
+  platform.common.v1.UserPresenceStatus status = 2;
+  repeated string skill_tags = 3; // For fast Redis index updates
+  double rating = 4; // For sorted set scoring
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message UserProfileUpdatedEvent {
+  string user_id = 1;
+  repeated string skill_tags = 2;
+  double hourly_rate = 3;
+  double rating = 4;
+  repeated float embedding_vector = 5; // ML embedding vector
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// Matching flow events
+message MatchProposedEvent {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  double score = 4;
+  string strategy_used = 5; // e.g., "skill_match", "ml_hybrid"
+  google.protobuf.Timestamp proposed_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message MatchDeliveredEvent {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  string delivery_channel = 4; // "websocket", "push", "email"
+  platform.common.v1.ProposalState status = 5;
+  google.protobuf.Timestamp delivered_at = 6;
+}
+
+message MatchRespondedEvent {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  platform.common.v1.ProposalState response = 4; // accepted, rejected
+  string rejection_reason = 5; // optional
+  google.protobuf.Timestamp responded_at = 6;
+}
+
+// Delivery system events
+message DeliveryFailedEvent {
+  string proposal_id = 1;
+  string user_id = 2;
+  string channel = 3;
+  string error_reason = 4;
+  int32 retry_count = 5;
+  google.protobuf.Timestamp failed_at = 6;
+}
+
+// Metrics and analytics events
+message MetricsEvent {
+  string event_type = 1; // "latency", "throughput", "error"
+  string component = 2; // "orchestrator", "delivery", "recommendation"
+  map<string, string> labels = 3;
+  map<string, double> values = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// WebSocket presence heartbeat
+message PresenceHeartbeatEvent {
+  string user_id = 1;
+  string session_id = 2;
+  platform.common.v1.UserPresenceStatus status = 3;
+  google.protobuf.Timestamp heartbeat_at = 4;
+}

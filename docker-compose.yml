@@ -1,0 +1,181 @@
+services:
+  # PostgreSQL database with PGVector extension
+  postgres:
+    image: ankane/pgvector:v0.5.1
+    container_name: freelance_postgres
+    environment:
+      POSTGRES_DB: freelance_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis cluster for caching and presence
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: freelance_redis_1
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    volumes:
+      - redis_1_data:/data
+      
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: freelance_redis_2
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    volumes:
+      - redis_2_data:/data
+      
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: freelance_redis_3
+    ports:
+      - "6381:6379"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    volumes:
+      - redis_3_data:/data
+
+    # NATS message broker for event-driven architecture
+  nats:
+    image: nats:latest
+    container_name: freelance_nats
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP management
+      - "6222:6222"  # Routing port for clustering
+    command: ["--jetstream"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: freelance_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+
+  # Grafana for monitoring dashboards  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: freelance_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: freelance_jaeger
+    ports:
+      - "16686:16686"  # Web UI
+      - "6831:6831/udp"  # Agent UDP
+      - "6832:6832/udp"  # Agent UDP  
+      - "5778:5778"    # Agent HTTP
+      - "14268:14268"  # Collector HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+
+  # Development tools
+  adminer:
+    image: adminer:latest
+    container_name: freelance_adminer
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+
+  # Redis Commander for Redis management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    platform: linux/amd64
+    container_name: freelance_redis_commander
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: "redis-1:freelance_redis_1:6379,redis-2:freelance_redis_2:6379,redis-3:freelance_redis_3:6379"
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+
+  # Example service containers (commented out for now)
+  # orchestrator:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/orchestrator/Dockerfile
+  #   container_name: freelance_orchestrator
+  #   ports:
+  #     - "8090:8080"
+  #   environment:
+  #     POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
+  #     REDIS_ADDRS: "redis-node-1:6379,redis-node-2:6379,redis-node-3:6379"
+  #     NATS_URL: "nats://nats:4222"
+  #     LOG_LEVEL: "debug"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     nats:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  # userservice:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/userservice/Dockerfile
+  #   container_name: freelance_userservice
+  #   ports:
+  #     - "8091:8080"
+  #   environment:
+  #     POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/freelance_platform?sslmode=disable"
+  #     REDIS_ADDRS: "redis-node-1:6379,redis-node-2:6379,redis-node-3:6379"
+  #     NATS_URL: "nats://nats:4222"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_1_data:
+  redis_2_data:  
+  redis_3_data:
+  nats_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: freelance_platform_network

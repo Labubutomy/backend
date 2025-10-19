@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package platform.common.v1;
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/common/v1";
+
+// UserPresenceStatus describes the states a developer can expose to the platform.
+enum UserPresenceStatus {
+  USER_PRESENCE_STATUS_UNSPECIFIED = 0;
+  USER_PRESENCE_STATUS_OFFLINE = 1;
+  USER_PRESENCE_STATUS_IDLE = 2;
+  USER_PRESENCE_STATUS_SEARCHING = 3;
+}
+
+// TaskLifecycleStatus reflects the current lifecycle of a task.
+enum TaskLifecycleStatus {
+  TASK_LIFECYCLE_STATUS_UNSPECIFIED = 0;
+  TASK_LIFECYCLE_STATUS_OPEN = 1;
+  TASK_LIFECYCLE_STATUS_ASSIGNED = 2;
+  TASK_LIFECYCLE_STATUS_PAUSED = 3;
+  TASK_LIFECYCLE_STATUS_COMPLETED = 4;
+  TASK_LIFECYCLE_STATUS_CANCELLED = 5;
+}
+
+// ProposalState represents the state of a task proposal delivered to a developer.
+enum ProposalState {
+  PROPOSAL_STATE_UNSPECIFIED = 0;
+  PROPOSAL_STATE_PROPOSED = 1;
+  PROPOSAL_STATE_DELIVERED = 2;
+  PROPOSAL_STATE_ACCEPTED = 3;
+  PROPOSAL_STATE_REJECTED = 4;
+  PROPOSAL_STATE_EXPIRED = 5;
+}

@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package platform.delivery.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+option go_package = "github.com/Labubutomy/backend/proto/gen/go/platform/delivery/v1";
+
+// Multi-channel delivery service with fallback mechanisms
+service DeliveryService {
+  // Deliver proposal with automatic channel selection and fallback
+  rpc DeliverProposal(DeliverProposalRequest) returns (DeliverProposalResponse);
+  
+  // Check delivery status
+  rpc GetDeliveryStatus(GetDeliveryStatusRequest) returns (GetDeliveryStatusResponse);
+  
+  // Mark proposal as read/acknowledged by user
+  rpc AckDelivery(AckDeliveryRequest) returns (google.protobuf.Empty);
+  
+  // Report channel health status
+  rpc ReportChannelStatus(ReportChannelStatusRequest) returns (google.protobuf.Empty);
+  
+  // Health check
+  rpc Health(google.protobuf.Empty) returns (HealthResponse);
+}
+
+message DeliverProposalRequest {
+  string proposal_id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  ProposalPayload payload = 4;
+  DeliveryOptions options = 5;
+}
+
+message ProposalPayload {
+  string task_title = 1;
+  string task_description = 2;
+  double budget_lower_bound = 3;
+  double budget_upper_bound = 4;
+  string repository_url = 5;
+  repeated string skill_tags = 6;
+  string client_name = 7;
+  double score = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  string deep_link_url = 10;
+}
+
+message DeliveryOptions {
+  repeated DeliveryChannel preferred_channels = 1;
+  bool allow_fallback = 2;
+  int32 retry_count = 3;
+  bool high_priority = 4;
+}
+
+enum DeliveryChannel {
+  DELIVERY_CHANNEL_UNSPECIFIED = 0;
+  DELIVERY_CHANNEL_WEBSOCKET = 1;
+  DELIVERY_CHANNEL_PUSH = 2;
+  DELIVERY_CHANNEL_EMAIL = 3;
+}
+
+enum DeliveryStatus {
+  DELIVERY_STATUS_UNSPECIFIED = 0;
+  DELIVERY_STATUS_PENDING = 1;
+  DELIVERY_STATUS_DELIVERED = 2;
+  DELIVERY_STATUS_FAILED = 3;
+  DELIVERY_STATUS_ACKNOWLEDGED = 4;
+}
+
+message DeliveryAttempt {
+  DeliveryChannel channel = 1;
+  DeliveryStatus status = 2;
+  string error_message = 3;
+  google.protobuf.Timestamp attempted_at = 4;
+  int64 latency_ms = 5;
+}
+
+message DeliverProposalResponse {
+  bool success = 1;
+  string delivery_id = 2;
+  repeated DeliveryAttempt attempts = 3;
+  DeliveryChannel successful_channel = 4;
+  google.protobuf.Timestamp delivered_at = 5;
+}
+
+message GetDeliveryStatusRequest {
+  string delivery_id = 1;
+}
+
+message GetDeliveryStatusResponse {
+  string delivery_id = 1;
+  DeliveryStatus status = 2;
+  repeated DeliveryAttempt attempts = 3;
+}
+
+message AckDeliveryRequest {
+  string proposal_id = 1;
+  platform.common.v1.ProposalState state = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message ReportChannelStatusRequest {
+  string channel = 1;
+  bool healthy = 2;
+  string error_message = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+message HealthResponse {
+  bool healthy = 1;
+  string status = 2;
+  map<string, string> checks = 3;
+}
