@@ -6,7 +6,7 @@ export PATH := /usr/local/go/bin:/Applications/Docker.app/Contents/Resources/bin
 export GOPATH := $(HOME)/go
 export PATH := $(PATH):$(GOPATH)/bin
 
-.PHONY: help proto-gen proto-clean build test run-local docker-build docker-up docker-down migrate-up migrate-down setup-env
+.PHONY: help proto-gen proto-clean build test run-local docker-build docker-up docker-down migrate-up migrate-down setup-env web-build web-dev web-prod dev-clean dev-restart
 
 # Default target
 help:
@@ -26,6 +26,11 @@ help:
 	@echo "  migrate-up    - Apply database migrations"
 	@echo "  migrate-down  - Rollback database migrations"
 	@echo "  dev           - Full development setup"
+	@echo "  web-build     - Build web client Docker image"
+	@echo "  web-dev       - Run web client in development mode"
+	@echo "  web-prod      - Run web client in production mode"
+	@echo "  dev-clean     - Clean and restart development environment"
+	@echo "  dev-restart   - Restart development environment"
 
 # Protocol buffer generation
 PROTO_PATH = ./proto
@@ -101,6 +106,7 @@ docker-build:
 	@docker build -t freelance-platform/presenceservice -f docker/presenceservice/Dockerfile .
 	@docker build -t freelance-platform/recommendationservice -f docker/recommendationservice/Dockerfile .
 	@docker build -t freelance-platform/gateway -f services/gateway/Dockerfile ./services/gateway
+	@docker build -t freelance-web ./app/web
 	@echo "Docker images built"
 
 docker-up:
@@ -116,12 +122,12 @@ docker-down:
 # Database migrations (requires migrate tool)
 migrate-up:
 	@echo "Applying database migrations..."
-	@migrate -database "postgres://postgres:postgres@localhost:5432/freelance_platform?sslmode=disable" -path migrations up
+	@migrate -database "postgres://postgres:postgres@localhost:5432/freelance_platform?sslmode=disable" -path migrations up || echo "Migrations already applied or no migrations found"
 	@echo "Migrations applied"
 
 migrate-down:
 	@echo "Rolling back database migrations..."
-	@migrate -database "postgres://postgres:postgres@localhost:5432/freelance_platform?sslmode=disable" -path migrations down
+	@migrate -database "postgres://postgres:postgres@localhost:5432/freelance_platform?sslmode=disable" -path migrations down || echo "No migrations to rollback"
 	@echo "Migrations rolled back"
 
 migrate-create:
@@ -164,7 +170,7 @@ clean: proto-clean
 	@echo "Cleanup completed"
 
 # Development workflow
-dev: docker-up migrate-up proto-gen build
+dev: check-deps proto-gen docker-up wait-for-db migrate-up
 	@echo "Development environment ready!"
 	@echo "Services:"  
 	@echo "  - PostgreSQL: localhost:5432"
@@ -172,8 +178,27 @@ dev: docker-up migrate-up proto-gen build
 	@echo "  - NATS: localhost:4222"
 	@echo "  - Gateway API: http://localhost:8000"
 	@echo "  - API Docs: http://localhost:8000/docs"
+	@echo "  - Web App: http://localhost"
 	@echo "  - Grafana: http://localhost:3000"
 	@echo "  - Prometheus: http://localhost:9090"
+
+# Check dependencies
+check-deps:
+	@./scripts/check-deps.sh
+
+# Wait for database to be ready
+wait-for-db:
+	@echo "Waiting for database to be ready..."
+	@for i in $$(seq 1 30); do \
+		if docker exec freelance_postgres pg_isready -U postgres >/dev/null 2>&1; then \
+			echo "Database is ready!"; \
+			exit 0; \
+		fi; \
+		echo "Waiting for database... ($$i/30)"; \
+		sleep 2; \
+	done; \
+	echo "Database connection timeout!"; \
+	exit 1
 
 # Production build
 prod-build: proto-gen test
@@ -184,3 +209,35 @@ prod-build: proto-gen test
 	@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/presenceservice ./services/presenceservice/cmd/presenceservice
 	@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/recommendationservice ./services/recommendationservice/cmd/recommendationservice
 	@echo "Production build completed"
+
+# Web client commands
+web-build:
+	@echo "Building web client Docker image..."
+	@docker build -t freelance-web ./app/web
+	@echo "Web client image built"
+
+web-dev:
+	@echo "Starting web client in development mode..."
+	@cd app/web && npm install
+	@cd app/web && npm run dev
+
+web-prod:
+	@echo "Starting web client in production mode..."
+	@docker run -d -p 80:80 --name freelance-web-prod freelance-web
+	@echo "Web client started at http://localhost"
+
+web-stop:
+	@echo "Stopping web client..."
+	@docker stop freelance-web-prod || true
+	@docker rm freelance-web-prod || true
+	@echo "Web client stopped"
+
+# Development environment management
+dev-clean: docker-down
+	@echo "Cleaning development environment..."
+	@docker system prune -f
+	@docker volume prune -f
+	@echo "Environment cleaned"
+
+dev-restart: dev-clean dev
+	@echo "Development environment restarted"

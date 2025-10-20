@@ -131,6 +131,24 @@ services:
       - redis-node-2
       - redis-node-3
 
+  # Frontend Web Application
+  web:
+    build:
+      context: ./app/web
+      dockerfile: Dockerfile
+    container_name: freelance_web
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # Gateway Service - Main API entry point
   gateway:
     build:
